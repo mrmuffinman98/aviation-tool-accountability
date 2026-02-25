@@ -9,6 +9,7 @@ import numpy as np
 # Camera calibration
 # Generated once using cv2.calibrateCamera() with a checkerboard pattern.
 # Replace the placeholder arrays below with your actual calibration output.
+# Run: python camera_calibration.py
 # ---------------------------------------------------------------------------
 
 CAMERA_MATRIX = np.array([
@@ -28,8 +29,17 @@ DISTORTION_COEFFICIENTS = np.array(
 # ---------------------------------------------------------------------------
 
 # Picamera2 capture resolution. Higher = more detail, slower processing.
-# (4608, 2592) is the Pi Camera Module 3 native max; start with half for speed.
+# Pi Camera Module 3 native max is (4608, 2592). Start at half for speed.
 IMAGE_RESOLUTION = (2304, 1296)
+
+# Manual focus position for the top-down rig (Pi Camera Module 3 only).
+# LensPosition: 0.0 = infinity, higher values = closer subject.
+# Typical values for top-down setups:
+#   ~5.0  = ~30 cm working distance
+#   ~8.0  = ~20 cm working distance
+#   ~12.0 = ~15 cm working distance
+# Tune by capturing a test image and checking sharpness.
+LENS_POSITION = 8.0
 
 # ---------------------------------------------------------------------------
 # Crop
@@ -41,18 +51,27 @@ IMAGE_RESOLUTION = (2304, 1296)
 CROP_BOUNDS = (50, 50, 2200, 1196)  # PLACEHOLDER — tune after calibration
 
 # ---------------------------------------------------------------------------
-# Ruler / scale detection
-# The ruler printed on the light board provides an automatic pixels-per-mm
-# ratio on every capture. No manual scale entry required.
+# ArUco scale detection
+# Replace the ruler with a printed ArUco marker of known physical size.
+# Tape the marker flat on the light board surface in view of the camera.
+#
+# To generate and print a marker: python generate_aruco_marker.py
+# Use a ruler to verify the printout dimensions match ARUCO_MARKER_SIZE_MM
+# before using the system.
 # ---------------------------------------------------------------------------
 
-# Pixel region of the image (after crop) where the ruler sits.
-# Format: (x, y, width, height). Place ruler toward frame centre to minimise
-# residual distortion error.
-RULER_REGION = (50, 1100, 500, 80)  # PLACEHOLDER — measure on your setup
+# ArUco dictionary to use. DICT_4X4_50 is fastest to detect and lowest
+# false-positive rate — sufficient for a single reference marker.
+# Must match what was used in generate_aruco_marker.py.
+ARUCO_DICT_NAME = "DICT_4X4_50"
 
-# Known real-world length of the ruler segment being detected (millimetres).
-RULER_MM_LENGTH = 100.0
+# Which marker ID to expect in the frame (0–49 for DICT_4X4_50).
+ARUCO_MARKER_ID = 0
+
+# Physical side length of the printed ArUco marker in millimetres.
+# Measure the actual printout with a ruler and set this accurately —
+# any error here propagates directly to every SVG dimension.
+ARUCO_MARKER_SIZE_MM = 50.0
 
 # ---------------------------------------------------------------------------
 # Silhouette extraction

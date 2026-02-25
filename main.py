@@ -10,8 +10,6 @@
 import argparse
 import sys
 
-import cv2
-
 import config
 import process
 import vectorize
@@ -53,26 +51,21 @@ def run_pipeline(image_path: str | None = None) -> str:
     print("[main] Step 2: Processing image...")
     binary_mask, pixels_per_mm = process.process_image(image_path)
 
-    # Derive the image height in mm (needed for Y-axis flip in export).
-    raw = cv2.imread(image_path)
-    if raw is None:
-        raise FileNotFoundError(f"Cannot reload image for height check: {image_path}")
-
-    # Height after crop, in mm.
-    _, _, _, crop_h = config.CROP_BOUNDS
-    image_height_mm = crop_h / pixels_per_mm
+    # mask_height_px is needed by export.py for the Y-axis flip
+    # (Potrace origin is bottom-left; SVG origin is top-left).
+    mask_height_px = binary_mask.shape[0]
 
     # -----------------------------------------------------------------
     # Step 3: Vectorize
     # -----------------------------------------------------------------
     print("[main] Step 3: Vectorizing silhouette...")
-    path = vectorize.bitmap_to_paths(binary_mask, pixels_per_mm)
+    path = vectorize.bitmap_to_paths(binary_mask)
 
     # -----------------------------------------------------------------
     # Step 4: Export SVG
     # -----------------------------------------------------------------
     print("[main] Step 4: Exporting SVG...")
-    svg_path = export.paths_to_svg(path, image_height_mm)
+    svg_path = export.paths_to_svg(path, pixels_per_mm, mask_height_px)
 
     print(f"\n[main] Done. SVG ready for laser cutter: {svg_path}")
     return svg_path

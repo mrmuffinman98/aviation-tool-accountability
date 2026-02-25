@@ -1,17 +1,28 @@
 # capture.py
 # Step 1 — Capture a high-resolution image of the tool on the light board.
-# Requires: Picamera2 (sudo apt install python3-picamera2)
+# Requires: python3-picamera2 (sudo apt install python3-picamera2)
+#           libcamera (included in Raspberry Pi OS Bookworm by default)
 # Only runs on a Raspberry Pi with the camera module connected via CSI.
+#
+# Based on official Picamera2 examples:
+# https://github.com/raspberrypi/picamera2/tree/main/examples
 
 import time
 from pathlib import Path
+
 from picamera2 import Picamera2
+from libcamera import controls
 
 import config
 
 
 def capture_image(output_path: str | None = None) -> str:
     """Capture one frame from the Pi camera and save it to disk.
+
+    Uses manual focus at a fixed LensPosition suited to the top-down rig.
+    Manual focus is preferred over continuous AF for repeatability — once
+    LENS_POSITION is tuned for your working distance it never needs to change
+    unless the camera height is adjusted.
 
     Args:
         output_path: Where to save the JPEG. Defaults to a timestamped file
@@ -26,19 +37,46 @@ def capture_image(output_path: str | None = None) -> str:
 
     output_path = str(Path(output_path).resolve())
 
-    cam = Picamera2()
-    still_config = cam.create_still_configuration(
-        main={"size": config.IMAGE_RESOLUTION, "format": "RGB888"}
-    )
-    cam.configure(still_config)
-    cam.start()
+    picam2 = Picamera2()
 
-    # Brief warm-up so auto-exposure settles before capture.
+    # Still configuration: full-resolution capture with no framerate constraint.
+    # buffer_count=1 reduces memory use for single-shot captures.
+    # Pattern from official example: capture_full_res_jpeg.py
+    still_config = picam2.create_still_configuration(
+        main={"size": config.IMAGE_RESOLUTION, "format": "RGB888"},
+        buffer_count=1,
+    )
+    picam2.configure(still_config)
+    picam2.start()
+
+    # Allow AGC and AWB to converge before locking controls.
+    # 2 seconds is the official recommendation from the Picamera2 manual.
     time.sleep(2)
 
-    cam.capture_file(output_path)
-    cam.stop()
-    cam.close()
+    # Lock white balance to Indoor mode for consistent artificial lighting.
+    # Change AwbMode to match your light board's light source:
+    #   controls.AwbModeEnum.Indoor       — warm white LED / halogen
+    #   controls.AwbModeEnum.Fluorescent  — fluorescent / cool white LED
+    #   controls.AwbModeEnum.Daylight     — daylight-balanced LED
+    picam2.set_controls({
+        "AwbEnable": True,
+        "AwbMode": controls.AwbModeEnum.Indoor,
+    })
+    time.sleep(0.5)
+
+    # Manual focus at a fixed position for the top-down rig.
+    # More repeatable than autofocus for a fixed working distance.
+    # Tune LENS_POSITION in config.py for your camera height.
+    # Only supported on Pi Camera Module 3 (has motorised lens).
+    picam2.set_controls({
+        "AfMode": controls.AfModeEnum.Manual,
+        "LensPosition": config.LENS_POSITION,
+    })
+    time.sleep(0.3)
+
+    picam2.capture_file(output_path)
+    picam2.stop()
+    picam2.close()
 
     print(f"[capture] Saved: {output_path}")
     return output_path

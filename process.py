@@ -1,12 +1,37 @@
 # process.py
 # Step 2 — Image processing pipeline.
 # Sub-steps: distortion correction → crop → scale detection → silhouette extraction.
-# Requires: OpenCV (pip install opencv-python), NumPy (pip install numpy)
+#
+# Requires:
+#   opencv-contrib-python-headless  (NOT opencv-python — ArUco is in contrib)
+#   numpy
+#
+# Install on Raspberry Pi:
+#   pip install opencv-contrib-python-headless numpy
+#
+# ArUco scale detection replaces the manual ruler approach. A printed ArUco
+# marker of known physical size is detected automatically in every frame,
+# giving a reliable pixels-per-mm ratio without requiring manual measurement.
+# Generate the marker: python generate_aruco_marker.py
 
 import cv2
 import numpy as np
 
 import config
+
+
+# ---------------------------------------------------------------------------
+# ArUco dictionary lookup
+# ---------------------------------------------------------------------------
+
+_ARUCO_DICT_MAP = {
+    "DICT_4X4_50":         cv2.aruco.DICT_4X4_50,
+    "DICT_4X4_100":        cv2.aruco.DICT_4X4_100,
+    "DICT_5X5_50":         cv2.aruco.DICT_5X5_50,
+    "DICT_5X5_100":        cv2.aruco.DICT_5X5_100,
+    "DICT_6X6_50":         cv2.aruco.DICT_6X6_50,
+    "DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -23,20 +48,19 @@ def undistort(image: np.ndarray) -> np.ndarray:
         Undistorted image array (same shape).
     """
     h, w = image.shape[:2]
-    new_matrix, roi = cv2.getOptimalNewCameraMatrix(
+    new_matrix, _ = cv2.getOptimalNewCameraMatrix(
         config.CAMERA_MATRIX,
         config.DISTORTION_COEFFICIENTS,
         (w, h),
         alpha=1,
     )
-    undistorted = cv2.undistort(
+    return cv2.undistort(
         image,
         config.CAMERA_MATRIX,
         config.DISTORTION_COEFFICIENTS,
         None,
         new_matrix,
     )
-    return undistorted
 
 
 # ---------------------------------------------------------------------------
@@ -47,56 +71,80 @@ def crop(image: np.ndarray) -> np.ndarray:
     """Remove edge artifacts introduced by the undistort step.
 
     Uses CROP_BOUNDS from config: (x, y, width, height).
-
-    Args:
-        image: Undistorted image array.
-
-    Returns:
-        Cropped image array.
     """
     x, y, w, h = config.CROP_BOUNDS
-    cropped = image[y : y + h, x : x + w]
-    return cropped
+    return image[y : y + h, x : x + w]
 
 
 # ---------------------------------------------------------------------------
-# 2c: Scale detection
+# 2c: Scale detection via ArUco marker
 # ---------------------------------------------------------------------------
 
 def detect_scale(image: np.ndarray) -> float:
-    """Detect the ruler printed on the light board and return pixels-per-mm.
+    """Detect a printed ArUco marker in the image and return pixels-per-mm.
 
-    The function isolates the RULER_REGION, finds the ruler's pixel span using
-    edge detection, and divides by RULER_MM_LENGTH to get the scale factor.
+    The marker must be flat on the light board surface within the camera frame.
+    Generate and print the marker using: python generate_aruco_marker.py
+
+    Supports both OpenCV 4.7+ (ArucoDetector class) and older 4.x builds.
+    The average of all four marker side lengths is used to reduce
+    corner-detection jitter and give a stable scale factor.
 
     Args:
-        image: Cropped (but not yet thresholded) image array.
+        image: Cropped, undistorted image array (BGR).
 
     Returns:
-        pixels_per_mm (float). Raises RuntimeError if ruler not detected.
+        pixels_per_mm (float).
+
+    Raises:
+        RuntimeError: If no ArUco marker is detected.
+        KeyError: If ARUCO_DICT_NAME in config is not a recognised dictionary.
     """
-    x, y, w, h = config.RULER_REGION
-    roi = image[y : y + h, x : x + w]
-
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if roi.ndim == 3 else roi
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
-
-    # Project edge map horizontally to find leftmost and rightmost edge column.
-    col_sums = np.sum(edges, axis=0)
-    nonzero_cols = np.nonzero(col_sums)[0]
-
-    if len(nonzero_cols) < 2:
-        raise RuntimeError(
-            "Ruler not detected in RULER_REGION. "
-            "Check RULER_REGION bounds and lighting."
+    if config.ARUCO_DICT_NAME not in _ARUCO_DICT_MAP:
+        raise KeyError(
+            f"Unknown ARUCO_DICT_NAME '{config.ARUCO_DICT_NAME}'. "
+            f"Choose from: {list(_ARUCO_DICT_MAP.keys())}"
         )
 
-    ruler_pixel_span = float(nonzero_cols[-1] - nonzero_cols[0])
-    pixels_per_mm = ruler_pixel_span / config.RULER_MM_LENGTH
+    dict_id = _ARUCO_DICT_MAP[config.ARUCO_DICT_NAME]
+    aruco_dict = cv2.aruco.getPredefinedDictionary(dict_id)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
 
-    print(f"[process] Scale detected: {pixels_per_mm:.4f} px/mm "
-          f"(span={ruler_pixel_span:.1f}px over {config.RULER_MM_LENGTH}mm)")
+    # OpenCV 4.7+ introduced the ArucoDetector class (new API).
+    # Fall back to the legacy detectMarkers function for older builds.
+    if hasattr(cv2.aruco, "ArucoDetector"):
+        parameters = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
+        corners, ids, _ = detector.detectMarkers(gray)
+    else:
+        parameters = cv2.aruco.DetectorParameters_create()
+        corners, ids, _ = cv2.aruco.detectMarkers(
+            gray, aruco_dict, parameters=parameters
+        )
+
+    if ids is None or len(ids) == 0:
+        raise RuntimeError(
+            "No ArUco marker detected in the image. "
+            "Check that the marker is in frame, flat, and well-lit. "
+            "Run: python generate_aruco_marker.py to create the reference marker."
+        )
+
+    # Use the first detected marker.
+    # corners[0] has shape (1, 4, 2); reshape to (4, 2): TL, TR, BR, BL.
+    pts = corners[0].reshape((4, 2))
+
+    # Average all four side lengths to reduce corner sub-pixel detection jitter.
+    side_lengths_px = [
+        float(np.linalg.norm(pts[(i + 1) % 4] - pts[i])) for i in range(4)
+    ]
+    avg_side_px = float(np.mean(side_lengths_px))
+    pixels_per_mm = avg_side_px / config.ARUCO_MARKER_SIZE_MM
+
+    print(
+        f"[process] ArUco marker ID {ids[0][0]} detected. "
+        f"Avg side: {avg_side_px:.1f}px / {config.ARUCO_MARKER_SIZE_MM}mm → "
+        f"{pixels_per_mm:.4f} px/mm"
+    )
     return pixels_per_mm
 
 
@@ -108,12 +156,11 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
     """Threshold and extract the dominant tool contour as a clean binary mask.
 
     Steps:
-      1. Convert to grayscale.
-      2. Detect scale from the ruler region.
-      3. Apply binary threshold (tool=black on lit background=white → invert
-         so tool pixels become white in the mask).
+      1. Detect scale from the ArUco marker.
+      2. Convert to grayscale and apply binary threshold (invert so tool = white).
+      3. Morphological closing fills small holes in the tool outline.
       4. Select the largest contour above CONTOUR_MIN_AREA.
-      5. Draw a filled contour onto a clean binary bitmap.
+      5. Draw filled contour onto a clean binary mask.
 
     Args:
         image: Cropped, undistorted image array (BGR).
@@ -122,14 +169,14 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
         Tuple of:
           - binary_mask: uint8 array, tool pixels = 255, background = 0
           - largest_contour: the raw OpenCV contour (Nx1x2 array)
-          - pixels_per_mm: scale factor for downstream use
+          - pixels_per_mm: scale factor for use in export
     """
     pixels_per_mm = detect_scale(image)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Invert: light board background is bright, tool is dark.
-    # After threshold+invert, tool pixels are white (255).
+    # After threshold + invert, tool pixels are white (255).
     _, thresh = cv2.threshold(
         gray, config.THRESHOLD_VALUE, 255, cv2.THRESH_BINARY_INV
     )
@@ -143,19 +190,17 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
     )
 
     if not contours:
-        raise RuntimeError("No contours found. Check threshold and lighting.")
+        raise RuntimeError("No contours found. Check THRESHOLD_VALUE and lighting.")
 
-    # Filter by minimum area, then pick the largest.
     valid = [c for c in contours if cv2.contourArea(c) >= config.CONTOUR_MIN_AREA]
     if not valid:
         raise RuntimeError(
             f"No contour above CONTOUR_MIN_AREA={config.CONTOUR_MIN_AREA}. "
-            "Lower the threshold or adjust CONTOUR_MIN_AREA."
+            "Lower the threshold or adjust CONTOUR_MIN_AREA in config.py."
         )
 
     largest = max(valid, key=cv2.contourArea)
 
-    # Draw the selected contour onto a clean black canvas.
     binary_mask = np.zeros_like(gray, dtype=np.uint8)
     cv2.drawContours(binary_mask, [largest], -1, 255, thickness=cv2.FILLED)
 
