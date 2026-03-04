@@ -10,7 +10,6 @@
 import argparse
 import sys
 
-import config
 import process
 import vectorize
 import export
@@ -51,21 +50,17 @@ def run_pipeline(image_path: str | None = None) -> str:
     print("[main] Step 2: Processing image...")
     binary_mask, pixels_per_mm = process.process_image(image_path)
 
-    # mask_height_px is needed by export.py for the Y-axis flip
-    # (Potrace origin is bottom-left; SVG origin is top-left).
-    mask_height_px = binary_mask.shape[0]
-
     # -----------------------------------------------------------------
     # Step 3: Vectorize
     # -----------------------------------------------------------------
     print("[main] Step 3: Vectorizing silhouette...")
-    path = vectorize.bitmap_to_paths(binary_mask)
+    svg_content = vectorize.bitmap_to_svg_string(binary_mask)
 
     # -----------------------------------------------------------------
     # Step 4: Export SVG
     # -----------------------------------------------------------------
     print("[main] Step 4: Exporting SVG...")
-    svg_path = export.paths_to_svg(path, pixels_per_mm, mask_height_px)
+    svg_path = export.svg_to_file(svg_content, pixels_per_mm)
 
     print(f"\n[main] Done. SVG ready for laser cutter: {svg_path}")
     return svg_path

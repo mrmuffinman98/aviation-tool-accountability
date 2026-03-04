@@ -1,92 +1,78 @@
 # vectorize.py
-# Step 3 — Convert binary bitmap silhouette to a smooth vector path.
+# Step 3 — Convert binary bitmap silhouette to SVG using vtracer.
 #
-# Requires:
-#   pypotrace  (pip install pypotrace)
-#   Potrace C library must be installed first:
-#     sudo apt install potrace libpotrace-dev
+# Requires: vtracer (pip install vtracer)
+#   vtracer is a Rust-based tracer with pre-built ARM64 wheels — no C
+#   compilation needed. Drop-in replacement for pypotrace.
+#   GitHub: https://github.com/visioncortex/vtracer
 #
-# pypotrace GitHub: https://github.com/flupke/pypotrace
-# Import name is 'potrace' (not 'pypotrace').
-#
-# API reference (confirmed from pypotrace source):
-#   potrace.Bitmap(bool_array).trace(**kwargs) -> Path
-#   Path.curves        -> iterable of Curve objects
-#   Curve.start_point  -> (x, y) tuple  [pixel coordinates]
-#   Curve.segments     -> iterable of Segment objects
-#   Segment.is_corner  -> bool (True = corner/line, False = cubic bezier)
-#   Segment.c          -> tuple of (x,y) control points
-#                         corner:  c[0] = corner vertex
-#                         bezier:  c[0] = CP1, c[1] = CP2
-#   Segment.end_point  -> (x, y) tuple [endpoint of this segment]
-#
-# Coordinates are returned in PIXEL space. Scale to mm is applied in export.py.
+# vtracer takes an image file and returns an SVG string.
+# Coordinates in the SVG are in pixel space; scale to mm is applied in export.py.
 
-import potrace
+import os
+import tempfile
+
+import cv2
 import numpy as np
+import vtracer
 
 
-def bitmap_to_paths(binary_mask: np.ndarray) -> potrace.Path:
-    """Trace a binary silhouette mask into smooth Bézier curves.
+def bitmap_to_svg_string(binary_mask: np.ndarray) -> str:
+    """Trace a binary silhouette mask into an SVG string using vtracer.
 
-    Returns a Potrace Path object whose coordinates are in pixel space.
-    The scale conversion (pixels → mm) is applied in export.py so that
-    the SVG viewBox and path data are all in millimetres.
+    Saves the mask to a temporary PNG, runs vtracer, returns the SVG content.
+    Coordinates in the returned SVG are in pixel space — export.py applies
+    the pixels_per_mm scale to produce mm units in the final file.
 
     Args:
         binary_mask: uint8 array from process.extract_silhouette().
                      Tool pixels = 255, background = 0.
 
     Returns:
-        potrace.Path with curve data in pixel coordinates.
+        SVG content as a string (pixel coordinates, needs scaling in export.py).
     """
-    # pypotrace expects a 2D boolean numpy array (True = ink/tool pixel).
-    bool_bitmap = binary_mask > 127
+    # Write mask to a temp PNG — vtracer works on image files.
+    tmp_in  = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    tmp_out = tempfile.NamedTemporaryFile(suffix=".svg", delete=False)
+    tmp_in.close()
+    tmp_out.close()
 
-    bm = potrace.Bitmap(bool_bitmap)
+    try:
+        cv2.imwrite(tmp_in.name, binary_mask)
 
-    # Trace parameters:
-    #   turdsize    — suppress speckles smaller than this many pixels²
-    #   turnpolicy  — how to resolve ambiguous turns (MINORITY is the potrace default)
-    #   alphamax    — corner vs curve threshold: 0.0 = all sharp corners,
-    #                 1.0 = round corners, 1.33 = all curves
-    #   opttolerance — curve optimisation tolerance (lower = more faithful to bitmap)
-    path = bm.trace(
-        turdsize=2,
-        turnpolicy=potrace.TURNPOLICY_MINORITY,
-        alphamax=1.0,
-        opttolerance=0.2,
-    )
+        vtracer.convert_image_to_svg_py(
+            tmp_in.name,
+            tmp_out.name,
+            colormode="binary",     # black-and-white tracing
+            filter_speckle=4,       # suppress noise smaller than this many pixels
+            mode="spline",          # smooth Bézier splines (vs "polygon")
+            corner_threshold=60,    # angle below which corners are preserved (degrees)
+            length_threshold=4.0,   # minimum path segment length
+            splice_threshold=45,    # curve splicing angle threshold
+            path_precision=3,       # decimal places in path data
+        )
 
-    curve_count = sum(1 for _ in path.curves)
-    print(f"[vectorize] Traced {curve_count} curve(s) in pixel space")
-    return path
+        with open(tmp_out.name, "r") as f:
+            svg_content = f.read()
+
+    finally:
+        os.unlink(tmp_in.name)
+        os.unlink(tmp_out.name)
+
+    print(f"[vectorize] vtracer trace complete ({len(svg_content)} bytes)")
+    return svg_content
 
 
 if __name__ == "__main__":
-    # Standalone test: load debug_mask.png written by process.py
     import sys
-    import cv2
 
     mask_path = sys.argv[1] if len(sys.argv) > 1 else "debug_mask.png"
-
     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     if mask is None:
         print(f"Could not load {mask_path}")
         sys.exit(1)
 
-    path = bitmap_to_paths(mask)
-
-    # Print first curve's segments to verify API is working.
-    for i, curve in enumerate(path.curves):
-        print(f"Curve {i}: start={curve.start_point}")
-        for j, seg in enumerate(curve.segments):
-            if seg.is_corner:
-                print(f"  Seg {j}: CORNER  c[0]={seg.c[0]}  end={seg.end_point}")
-            else:
-                print(f"  Seg {j}: BEZIER  c[0]={seg.c[0]}  c[1]={seg.c[1]}  end={seg.end_point}")
-        if i >= 2:
-            print("  (truncated...)")
-            break
-
-    print("Vectorization OK")
+    svg = bitmap_to_svg_string(mask)
+    with open("debug_vectorize.svg", "w") as f:
+        f.write(svg)
+    print("Saved debug_vectorize.svg")
