@@ -64,15 +64,18 @@ def capture_image(output_path: str | None = None) -> str:
     })
     time.sleep(0.5)
 
-    # Manual focus at a fixed position for the top-down rig.
-    # More repeatable than autofocus for a fixed working distance.
-    # Tune LENS_POSITION in config.py for your camera height.
-    # Only supported on Pi Camera Module 3 (has motorised lens).
-    picam2.set_controls({
-        "AfMode": controls.AfModeEnum.Manual,
-        "LensPosition": config.LENS_POSITION,
-    })
-    time.sleep(0.3)
+    # Manual focus — only supported on Pi Camera Module 3 (motorised lens).
+    # Camera Module 2 has fixed focus and will raise RuntimeError here — silently
+    # skipped so the same code works with both camera modules.
+    try:
+        picam2.set_controls({
+            "AfMode": controls.AfModeEnum.Manual,
+            "LensPosition": config.LENS_POSITION,
+        })
+        time.sleep(0.3)
+        print("[capture] Manual focus set (Camera Module 3)")
+    except RuntimeError:
+        print("[capture] Fixed focus camera detected — skipping LensPosition (Camera Module 2)")
 
     picam2.capture_file(output_path)
     picam2.stop()
