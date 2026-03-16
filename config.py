@@ -13,16 +13,15 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 CAMERA_MATRIX = np.array([
-    [1000.0,    0.0, 640.0],
-    [   0.0, 1000.0, 480.0],
-    [   0.0,    0.0,   1.0],
+    [2757.3684438599776, 0.0,                1156.2323363492503],
+    [0.0,                2773.1375227967383,  775.4384227198979],
+    [0.0,                0.0,                   1.0            ],
 ], dtype=np.float64)
-# ^^^ PLACEHOLDER — run camera_calibration.py and paste real values here.
 
 DISTORTION_COEFFICIENTS = np.array(
-    [0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64
+    [0.019202280771496893, 0.6745707789527429, 0.014252213359000484,
+     0.0015007128671278341, -3.565156939628043], dtype=np.float64
 )
-# ^^^ PLACEHOLDER — run camera_calibration.py and paste real values here.
 
 # ---------------------------------------------------------------------------
 # Capture
