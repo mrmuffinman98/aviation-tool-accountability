@@ -89,4 +89,4 @@ CONTOUR_MIN_AREA = 5000
 # Output
 # ---------------------------------------------------------------------------
 
-SVG_OUTPUT_PATH = "output"
+SVG_OUTPUT_PATH = "/home/tomas/Desktop/captures"
