@@ -31,6 +31,17 @@ def bitmap_to_svg_string(binary_mask: np.ndarray) -> str:
     Returns:
         SVG content as a string (pixel coordinates, needs scaling in export.py).
     """
+    # Crop mask to the bounding box of white pixels so vtracer works on a
+    # tight canvas. The SVG output will be sized to the tool, not the full image.
+    white_pixels = np.where(binary_mask > 0)
+    if len(white_pixels[0]) > 0:
+        padding = 10
+        y_min = max(0, int(white_pixels[0].min()) - padding)
+        y_max = min(binary_mask.shape[0], int(white_pixels[0].max()) + padding)
+        x_min = max(0, int(white_pixels[1].min()) - padding)
+        x_max = min(binary_mask.shape[1], int(white_pixels[1].max()) + padding)
+        binary_mask = binary_mask[y_min:y_max, x_min:x_max]
+
     # Write mask to a temp PNG — vtracer works on image files.
     tmp_in  = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     tmp_out = tempfile.NamedTemporaryFile(suffix=".svg", delete=False)
