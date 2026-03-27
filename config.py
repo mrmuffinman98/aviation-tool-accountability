@@ -70,7 +70,7 @@ ARUCO_MARKER_ID = 0
 # Physical side length of the printed ArUco marker in millimetres.
 # Measure the actual printout with a ruler and set this accurately —
 # any error here propagates directly to every SVG dimension.
-ARUCO_MARKER_SIZE_MM = 50.0
+ARUCO_MARKER_SIZE_MM = 20.0
 
 # ---------------------------------------------------------------------------
 # Silhouette extraction
