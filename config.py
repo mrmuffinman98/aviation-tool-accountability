@@ -47,7 +47,7 @@ LENS_POSITION = 8.0
 # Measure these values after running undistortion on a test frame.
 # ---------------------------------------------------------------------------
 
-CROP_BOUNDS = (50, 50, 2200, 1196)  # PLACEHOLDER — tune after calibration
+CROP_BOUNDS = (0, 0, 2304, 1296)  # Full frame — no cropping
 
 # ---------------------------------------------------------------------------
 # ArUco scale detection
