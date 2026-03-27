@@ -181,6 +181,14 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
         gray, config.THRESHOLD_VALUE, 255, cv2.THRESH_BINARY_INV
     )
 
+    # Zero out border pixels to prevent undistortion edge artifacts from
+    # being detected as contours (dark border pixels become white after invert).
+    border = 20
+    thresh[:border, :] = 0
+    thresh[-border:, :] = 0
+    thresh[:, :border] = 0
+    thresh[:, -border:] = 0
+
     # Morphological closing fills small holes inside the tool outline.
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
