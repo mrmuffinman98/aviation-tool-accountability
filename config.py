@@ -90,3 +90,8 @@ CONTOUR_MIN_AREA = 5000
 # ---------------------------------------------------------------------------
 
 SVG_OUTPUT_PATH = "/home/tomas/Desktop/captures"
+
+# Physical dimensions of the light board in millimetres.
+# Used to set the SVG canvas size (8" x 11.5").
+LIGHT_BOARD_WIDTH_MM  = 292.1   # 11.5 inches
+LIGHT_BOARD_HEIGHT_MM = 203.2   #  8.0 inches

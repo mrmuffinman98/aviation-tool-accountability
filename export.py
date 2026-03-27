@@ -9,6 +9,7 @@
 #
 # Uses Python stdlib xml.etree.ElementTree — no extra dependencies.
 
+import re
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -69,10 +70,29 @@ def svg_to_file(
     root.set("width",  f"{width_mm:.4f}mm")
     root.set("height", f"{height_mm:.4f}mm")
 
+    # Set canvas to light board physical size.
+    root.set("width",  f"{config.LIGHT_BOARD_WIDTH_MM:.4f}mm")
+    root.set("height", f"{config.LIGHT_BOARD_HEIGHT_MM:.4f}mm")
+
     # Convert vtracer's filled paths to hairline cut lines for the laser.
-    # 0.1mm stroke in pixel space = 0.1 * pixels_per_mm pixels.
+    # Also strip the outer border rectangle subpath that vtracer adds —
+    # any subpath starting at or near (0,0) is the background rectangle,
+    # not the tool outline.
     stroke_width_px = 0.1 * pixels_per_mm
     for elem in root.iter(f"{{{_SVG_NS}}}path"):
+        d = elem.get("d", "")
+        # Split compound path into subpaths and drop the border rectangle.
+        subpaths = re.split(r"Z\s*", d.strip())
+        tool_parts = []
+        for sp in subpaths:
+            sp = sp.strip()
+            if not sp:
+                continue
+            m = re.match(r"M\s*([\d.eE+-]+)\s+([\d.eE+-]+)", sp)
+            if m and float(m.group(1)) < 5 and float(m.group(2)) < 5:
+                continue  # skip border rectangle
+            tool_parts.append(sp + " Z")
+        elem.set("d",            " ".join(tool_parts))
         elem.set("fill",         "none")
         elem.set("stroke",       "black")
         elem.set("stroke-width", f"{stroke_width_px:.4f}")
