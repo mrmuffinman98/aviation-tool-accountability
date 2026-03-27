@@ -70,9 +70,13 @@ def svg_to_file(
     root.set("width",  f"{width_mm:.4f}mm")
     root.set("height", f"{height_mm:.4f}mm")
 
-    # Set canvas to light board physical size.
-    root.set("width",  f"{config.LIGHT_BOARD_WIDTH_MM:.4f}mm")
-    root.set("height", f"{config.LIGHT_BOARD_HEIGHT_MM:.4f}mm")
+    # Set canvas size using the ArUco-derived scale factor so dimensions
+    # are physically accurate. viewBox stays in pixel space; width/height
+    # are in mm — the laser cutter uses these for real-world sizing.
+    width_mm  = width_px  / pixels_per_mm
+    height_mm = height_px / pixels_per_mm
+    root.set("width",  f"{width_mm:.4f}mm")
+    root.set("height", f"{height_mm:.4f}mm")
 
     # Convert vtracer's filled paths to hairline cut lines for the laser.
     # Also strip the outer border rectangle subpath that vtracer adds —
