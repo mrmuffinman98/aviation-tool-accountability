@@ -33,7 +33,9 @@ def capture_image(output_path: str | None = None) -> str:
     """
     if output_path is None:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        output_path = f"capture_{timestamp}.jpg"
+        images_dir = Path(config.IMAGE_OUTPUT_PATH)
+        images_dir.mkdir(parents=True, exist_ok=True)
+        output_path = str(images_dir / f"capture_{timestamp}.jpg")
 
     output_path = str(Path(output_path).resolve())
 

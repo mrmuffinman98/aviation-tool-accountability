@@ -89,7 +89,8 @@ CONTOUR_MIN_AREA = 5000
 # Output
 # ---------------------------------------------------------------------------
 
-SVG_OUTPUT_PATH = "/home/tomas/Desktop/captures"
+IMAGE_OUTPUT_PATH = "/home/tomas/Desktop/aviation-tool-accountability-main/images"
+SVG_OUTPUT_PATH   = "/home/tomas/Desktop/captures"
 
 # Physical dimensions of the light board in millimetres.
 # Used to set the SVG canvas size (8" x 11.5").
