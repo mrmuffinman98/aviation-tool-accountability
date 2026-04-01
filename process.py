@@ -191,10 +191,10 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
     thresh[:, -border:] = 0
 
     # Blank out the ArUco marker region so it is never picked up as a contour.
-    # Expand the mask by 10px on each side to cover the marker border/tape.
+    # Expand the mask by 60px on each side to cover the marker border/tape.
     pts = aruco_corners.astype(np.int32)
     x, y, w, h = cv2.boundingRect(pts)
-    padding = 10
+    padding = 60
     x1 = max(0, x - padding)
     y1 = max(0, y - padding)
     x2 = min(thresh.shape[1], x + w + padding)
