@@ -64,19 +64,12 @@ def svg_to_file(
     width_mm  = width_px  / pixels_per_mm
     height_mm = height_px / pixels_per_mm
 
-    # Set real-world mm dimensions while keeping viewBox in pixel space.
-    # This is the standard SVG technique: 1 viewBox unit = 1 pixel,
-    # but the rendered canvas is sized in mm for the laser cutter.
-    root.set("width",  f"{width_mm:.4f}mm")
-    root.set("height", f"{height_mm:.4f}mm")
-
-    # Set canvas size using the ArUco-derived scale factor so dimensions
-    # are physically accurate. viewBox stays in pixel space; width/height
-    # are in mm — the laser cutter uses these for real-world sizing.
-    width_mm  = width_px  / pixels_per_mm
-    height_mm = height_px / pixels_per_mm
-    root.set("width",  f"{width_mm:.4f}mm")
-    root.set("height", f"{height_mm:.4f}mm")
+    # Set real-world mm dimensions and explicitly set the viewBox.
+    # Without viewBox, Illustrator treats path coords as raw pixels
+    # (1px = 0.35mm), making the tool appear ~3x too large.
+    root.set("width",   f"{width_mm:.4f}mm")
+    root.set("height",  f"{height_mm:.4f}mm")
+    root.set("viewBox", f"0 0 {width_px:.4f} {height_px:.4f}")
 
     # Convert vtracer's filled paths to hairline cut lines for the laser.
     # Also strip the outer border rectangle subpath that vtracer adds —
