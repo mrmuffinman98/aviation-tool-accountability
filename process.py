@@ -219,13 +219,11 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
             "Lower the threshold or adjust CONTOUR_MIN_AREA in config.py."
         )
 
-    largest = max(valid, key=cv2.contourArea)
-
     binary_mask = np.zeros_like(gray, dtype=np.uint8)
-    cv2.drawContours(binary_mask, [largest], -1, 255, thickness=cv2.FILLED)
+    cv2.drawContours(binary_mask, valid, -1, 255, thickness=cv2.FILLED)
 
-    print(f"[process] Tool contour area: {cv2.contourArea(largest):.0f} px²")
-    return binary_mask, largest, pixels_per_mm
+    print(f"[process] Found {len(valid)} tool contour(s), total area: {sum(cv2.contourArea(c) for c in valid):.0f} px²")
+    return binary_mask, valid, pixels_per_mm
 
 
 # ---------------------------------------------------------------------------
