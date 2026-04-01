@@ -184,7 +184,7 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
 
     # Zero out border pixels to prevent undistortion edge artifacts from
     # being detected as contours (dark border pixels become white after invert).
-    border = 20
+    border = 60
     thresh[:border, :] = 0
     thresh[-border:, :] = 0
     thresh[:, :border] = 0
