@@ -94,7 +94,8 @@ def detect_scale(image: np.ndarray) -> float:
         image: Cropped, undistorted image array (BGR).
 
     Returns:
-        pixels_per_mm (float).
+        Tuple of (pixels_per_mm, marker_corners) where marker_corners is a
+        (4, 2) array of the detected marker corner coordinates in pixel space.
 
     Raises:
         RuntimeError: If no ArUco marker is detected.
@@ -145,7 +146,7 @@ def detect_scale(image: np.ndarray) -> float:
         f"Avg side: {avg_side_px:.1f}px / {config.ARUCO_MARKER_SIZE_MM}mm → "
         f"{pixels_per_mm:.4f} px/mm"
     )
-    return pixels_per_mm
+    return pixels_per_mm, pts
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +172,7 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
           - largest_contour: the raw OpenCV contour (Nx1x2 array)
           - pixels_per_mm: scale factor for use in export
     """
-    pixels_per_mm = detect_scale(image)
+    pixels_per_mm, aruco_corners = detect_scale(image)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -188,6 +189,17 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
     thresh[-border:, :] = 0
     thresh[:, :border] = 0
     thresh[:, -border:] = 0
+
+    # Blank out the ArUco marker region so it is never picked up as a contour.
+    # Expand the mask by 10px on each side to cover the marker border/tape.
+    pts = aruco_corners.astype(np.int32)
+    x, y, w, h = cv2.boundingRect(pts)
+    padding = 10
+    x1 = max(0, x - padding)
+    y1 = max(0, y - padding)
+    x2 = min(thresh.shape[1], x + w + padding)
+    y2 = min(thresh.shape[0], y + h + padding)
+    thresh[y1:y2, x1:x2] = 0
 
     # Morphological closing fills small holes inside the tool outline.
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
