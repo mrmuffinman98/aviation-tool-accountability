@@ -85,6 +85,11 @@ THRESHOLD_VALUE = 127
 # Eliminates dust, reflections, and small noise contours.
 CONTOUR_MIN_AREA = 5000
 
+# Uniform outward expansion applied to the tool silhouette before vectorizing.
+# Adds wiggle room so the tool drops into the foam insert easily.
+# Increase if tools fit too snugly; decrease if cutouts look too loose.
+OUTLINE_OFFSET_MM = 3.0
+
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------

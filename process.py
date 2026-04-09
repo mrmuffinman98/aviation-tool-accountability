@@ -222,6 +222,13 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
     binary_mask = np.zeros_like(gray, dtype=np.uint8)
     cv2.drawContours(binary_mask, valid, -1, 255, thickness=cv2.FILLED)
 
+    # Expand the mask outward by OUTLINE_OFFSET_MM to add clearance for tool insertion.
+    if config.OUTLINE_OFFSET_MM > 0:
+        offset_px = int(round(config.OUTLINE_OFFSET_MM * pixels_per_mm))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * offset_px + 1, 2 * offset_px + 1))
+        binary_mask = cv2.dilate(binary_mask, kernel)
+        print(f"[process] Outline offset: {config.OUTLINE_OFFSET_MM}mm = {offset_px}px")
+
     print(f"[process] Found {len(valid)} tool contour(s), total area: {sum(cv2.contourArea(c) for c in valid):.0f} px²")
     return binary_mask, valid, pixels_per_mm
 
