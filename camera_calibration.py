@@ -91,20 +91,35 @@ def capture_calibration_images(images_dir: str = CALIBRATION_DIR) -> None:
     picam2.start()
     time.sleep(2)
 
+    preview_path = str(output_dir / "preview.jpg")
     captured = 0
     for i, position in enumerate(POSITIONS):
         print(f"[{i+1}/{len(POSITIONS)}] Place checkerboard at: {position}")
-        try:
-            user_input = input("  Press Enter to capture (or 'q' to quit): ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
-            break
-        if user_input == "q":
-            break
+        print("  Commands: Enter=capture, 'p'=preview, 'q'=quit")
 
-        output_path = str(output_dir / f"calib_{i+1:02d}.jpg")
-        picam2.capture_file(output_path)
-        captured += 1
-        print(f"  Saved: {output_path}\n")
+        while True:
+            try:
+                user_input = input("  > ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                user_input = "q"
+
+            if user_input == "q":
+                picam2.stop()
+                picam2.close()
+                print(f"\nCaptured {captured} images.")
+                print("Now run:  python camera_calibration.py")
+                return
+            elif user_input == "p":
+                picam2.capture_file(preview_path)
+                print(f"  Preview saved — open to check framing: {preview_path}")
+                print("  Then press Enter to capture or 'p' to preview again.")
+            else:
+                # Enter — take the real shot
+                output_path = str(output_dir / f"calib_{i+1:02d}.jpg")
+                picam2.capture_file(output_path)
+                captured += 1
+                print(f"  Saved: {output_path}\n")
+                break
 
     picam2.stop()
     picam2.close()
