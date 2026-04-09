@@ -1,17 +1,22 @@
 # camera_calibration.py
 # One-time camera calibration using a printed checkerboard pattern.
 #
-# Steps:
-#   1. Print a checkerboard (e.g. 9x6 inner corners) and tape it flat.
-#   2. Photograph it ~15–20 times from different angles using the Pi camera.
-#      Save images to calibration_images/ (or supply a directory as argument).
-#   3. Run: python camera_calibration.py
-#   4. Copy the printed CAMERA_MATRIX and DISTORTION_COEFFICIENTS into config.py.
+# CAPTURE mode — guided photo session:
+#   python camera_calibration.py --capture
+#   Follow the prompts to place the checkerboard at each position.
+#   Press Enter to capture, 'q' to quit early.
 #
-# Requires: OpenCV, NumPy (both already in the project stack)
+# CALIBRATE mode — compute calibration from saved images:
+#   python camera_calibration.py
+#
+# After calibrating, copy the printed values into config.py.
+#
+# Requires: OpenCV, NumPy, picamera2 (capture mode only)
 
 import sys
 import glob
+import time
+from pathlib import Path
 import cv2
 import numpy as np
 
@@ -19,19 +24,92 @@ import numpy as np
 # Checkerboard inner corner dimensions — match your printed pattern.
 CHECKERBOARD = (9, 6)  # (columns, rows) of inner corners
 
+CALIBRATION_DIR = "calibration_images"
 
-def calibrate(images_dir: str = "calibration_images") -> None:
+# Guided positions to ensure full-frame coverage for edge distortion correction.
+POSITIONS = [
+    "TOP-LEFT corner of the frame",
+    "TOP-LEFT corner of the frame (different tilt)",
+    "TOP-RIGHT corner of the frame",
+    "TOP-RIGHT corner of the frame (different tilt)",
+    "BOTTOM-LEFT corner of the frame",
+    "BOTTOM-LEFT corner of the frame (different tilt)",
+    "BOTTOM-RIGHT corner of the frame",
+    "BOTTOM-RIGHT corner of the frame (different tilt)",
+    "TOP EDGE, center",
+    "BOTTOM EDGE, center",
+    "LEFT EDGE, center",
+    "RIGHT EDGE, center",
+    "CENTER of the frame, flat",
+    "CENTER of the frame, tilted left",
+    "CENTER of the frame, tilted right",
+    "CENTER of the frame, tilted toward you",
+    "CENTER of the frame, tilted away from you",
+    "CENTER of the frame, rotated 45 degrees",
+]
+
+
+def capture_calibration_images(images_dir: str = CALIBRATION_DIR) -> None:
+    try:
+        from picamera2 import Picamera2
+    except ImportError:
+        print("ERROR: picamera2 not available. Run on the Raspberry Pi.")
+        sys.exit(1)
+
+    output_dir = Path(images_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    print("=== Calibration Photo Capture ===")
+    print(f"Saving to: {output_dir.resolve()}")
+    print(f"Total positions to capture: {len(POSITIONS)}")
+    print()
+    print("IMPORTANT: Slightly tilt the checkerboard in every shot.")
+    print("Never hold it perfectly flat/parallel to the camera.")
+    print()
+
+    picam2 = Picamera2()
+    still_config = picam2.create_still_configuration(
+        main={"size": (2304, 1296), "format": "RGB888"},
+        buffer_count=1,
+    )
+    picam2.configure(still_config)
+    picam2.start()
+    time.sleep(2)
+
+    captured = 0
+    for i, position in enumerate(POSITIONS):
+        print(f"[{i+1}/{len(POSITIONS)}] Place checkerboard at: {position}")
+        try:
+            user_input = input("  Press Enter to capture (or 'q' to quit): ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            break
+        if user_input == "q":
+            break
+
+        output_path = str(output_dir / f"calib_{i+1:02d}.jpg")
+        picam2.capture_file(output_path)
+        captured += 1
+        print(f"  Saved: {output_path}\n")
+
+    picam2.stop()
+    picam2.close()
+
+    print(f"\nCaptured {captured} images.")
+    print(f"Now run:  python camera_calibration.py")
+
+
+def calibrate(images_dir: str = CALIBRATION_DIR) -> None:
     pattern_size = CHECKERBOARD
     objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0 : pattern_size[0], 0 : pattern_size[1]].T.reshape(-1, 2)
 
-    obj_points = []  # 3D points in real world space
-    img_points = []  # 2D points in image plane
+    obj_points = []
+    img_points = []
 
     image_paths = glob.glob(f"{images_dir}/*.jpg") + glob.glob(f"{images_dir}/*.png")
     if not image_paths:
         print(f"No images found in {images_dir}/")
-        print("Place checkerboard JPEG/PNG images there and re-run.")
+        print("Run:  python camera_calibration.py --capture")
         sys.exit(1)
 
     print(f"Found {len(image_paths)} calibration image(s).")
@@ -56,7 +134,7 @@ def calibrate(images_dir: str = "calibration_images") -> None:
 
     if len(obj_points) < 5:
         print(f"\nNeed at least 5 usable images; only {len(obj_points)} found.")
-        print("Photograph the checkerboard from more angles.")
+        print("Run:  python camera_calibration.py --capture")
         sys.exit(1)
 
     print(f"\nCalibrating with {len(obj_points)} images...")
@@ -64,7 +142,7 @@ def calibrate(images_dir: str = "calibration_images") -> None:
         obj_points, img_points, image_size, None, None
     )
 
-    print(f"Reprojection error (RMS): {rms:.4f}  (< 0.5 is good)")
+    print(f"Reprojection error (RMS): {rms:.4f}  (< 0.5 is good, < 1.0 is acceptable)")
     print("\n--- Copy these values into config.py ---\n")
     print("CAMERA_MATRIX = np.array(")
     print(repr(camera_matrix.tolist()) + ", dtype=np.float64)")
@@ -73,5 +151,8 @@ def calibrate(images_dir: str = "calibration_images") -> None:
 
 
 if __name__ == "__main__":
-    images_dir = sys.argv[1] if len(sys.argv) > 1 else "calibration_images"
-    calibrate(images_dir)
+    if "--capture" in sys.argv:
+        capture_calibration_images()
+    else:
+        images_dir = sys.argv[1] if len(sys.argv) > 1 else CALIBRATION_DIR
+        calibrate(images_dir)
