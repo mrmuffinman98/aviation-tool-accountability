@@ -88,7 +88,7 @@ CONTOUR_MIN_AREA = 5000
 # Uniform outward expansion applied to the tool silhouette before vectorizing.
 # Adds wiggle room so the tool drops into the foam insert easily.
 # Increase if tools fit too snugly; decrease if cutouts look too loose.
-OUTLINE_OFFSET_MM = 3.0
+OUTLINE_OFFSET_MM = 1.5
 
 # ---------------------------------------------------------------------------
 # Output
