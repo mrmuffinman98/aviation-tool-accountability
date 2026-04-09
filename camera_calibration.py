@@ -28,24 +28,38 @@ CALIBRATION_DIR = "calibration_images"
 
 # Guided positions to ensure full-frame coverage for edge distortion correction.
 POSITIONS = [
-    "TOP-LEFT corner of the frame",
-    "TOP-LEFT corner of the frame (different tilt)",
-    "TOP-RIGHT corner of the frame",
-    "TOP-RIGHT corner of the frame (different tilt)",
-    "BOTTOM-LEFT corner of the frame",
-    "BOTTOM-LEFT corner of the frame (different tilt)",
-    "BOTTOM-RIGHT corner of the frame",
-    "BOTTOM-RIGHT corner of the frame (different tilt)",
-    "TOP EDGE, center",
-    "BOTTOM EDGE, center",
-    "LEFT EDGE, center",
-    "RIGHT EDGE, center",
-    "CENTER of the frame, flat",
-    "CENTER of the frame, tilted left",
-    "CENTER of the frame, tilted right",
-    "CENTER of the frame, tilted toward you",
-    "CENTER of the frame, tilted away from you",
-    "CENTER of the frame, rotated 45 degrees",
+    # Corners — 3 shots each, keep checkerboard FULLY inside frame
+    "TOP-LEFT corner — checkerboard fully inside frame, slight tilt",
+    "TOP-LEFT corner — move slightly more toward center, different tilt",
+    "TOP-LEFT corner — rotate checkerboard 45 degrees",
+    "TOP-RIGHT corner — checkerboard fully inside frame, slight tilt",
+    "TOP-RIGHT corner — move slightly more toward center, different tilt",
+    "TOP-RIGHT corner — rotate checkerboard 45 degrees",
+    "BOTTOM-LEFT corner — checkerboard fully inside frame, slight tilt",
+    "BOTTOM-LEFT corner — move slightly more toward center, different tilt",
+    "BOTTOM-LEFT corner — rotate checkerboard 45 degrees",
+    "BOTTOM-RIGHT corner — checkerboard fully inside frame, slight tilt",
+    "BOTTOM-RIGHT corner — move slightly more toward center, different tilt",
+    "BOTTOM-RIGHT corner — rotate checkerboard 45 degrees",
+    # Edges — 2 shots each
+    "TOP EDGE center — checkerboard fully inside frame, slight tilt",
+    "TOP EDGE center — different tilt",
+    "BOTTOM EDGE center — checkerboard fully inside frame, slight tilt",
+    "BOTTOM EDGE center — different tilt",
+    "LEFT EDGE center — checkerboard fully inside frame, slight tilt",
+    "LEFT EDGE center — different tilt",
+    "RIGHT EDGE center — checkerboard fully inside frame, slight tilt",
+    "RIGHT EDGE center — different tilt",
+    # Center — variety of angles
+    "CENTER — flat",
+    "CENTER — tilted left",
+    "CENTER — tilted right",
+    "CENTER — tilted toward you",
+    "CENTER — tilted away from you",
+    "CENTER — rotated 45 degrees",
+    "CENTER — rotated 90 degrees",
+    "CENTER — tilted left and rotated",
+    "CENTER — tilted right and rotated",
 ]
 
 
@@ -63,8 +77,9 @@ def capture_calibration_images(images_dir: str = CALIBRATION_DIR) -> None:
     print(f"Saving to: {output_dir.resolve()}")
     print(f"Total positions to capture: {len(POSITIONS)}")
     print()
-    print("IMPORTANT: Slightly tilt the checkerboard in every shot.")
-    print("Never hold it perfectly flat/parallel to the camera.")
+    print("IMPORTANT: Keep the ENTIRE checkerboard inside the frame in every shot.")
+    print("Slightly tilt it in every shot — never perfectly flat/parallel.")
+    print("For corners/edges, move close but make sure no squares are cut off.")
     print()
 
     picam2 = Picamera2()
