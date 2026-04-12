@@ -5,52 +5,43 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
-  .section { width: 420px; background: #f7f7f7; border: 1px solid #ccc; font-size: 10px; color: #222; }
+  .section { width: 380px; background: #f7f7f7; border: 1px solid #ccc; font-size: 10px; color: #222; }
   .header { background: #1a3a4a; color: white; font-size: 10px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 10px; }
   .body { padding: 10px 12px; }
   .pipeline-row { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
-  .box { background: #2e7d9e; color: white; font-size: 9px; font-weight: bold; padding: 4px 7px; border-radius: 2px; text-align: center; line-height: 1.4; }
-  .arrow { color: #2e7d9e; font-size: 13px; font-weight: bold; }
-  .row { display: flex; gap: 6px; margin-bottom: 5px; }
-  .label { background: #2e7d9e; color: white; font-size: 9px; font-weight: bold; padding: 2px 6px; white-space: nowrap; }
-  .desc { font-size: 9px; line-height: 1.5; color: #333; }
-  .divider { border: none; border-top: 1px solid #ccc; margin: 8px 0; }
+  .box { background: #2e7d9e; color: white; font-size: 9px; font-weight: bold; padding: 4px 7px; border-radius: 2px; text-align: center; }
+  .arrow { color: #2e7d9e; font-size: 13px; }
   .pill { background: #1a3a4a; color: white; font-size: 9px; padding: 2px 7px; border-radius: 10px; display: inline-block; margin: 2px 2px 0 0; }
 </style>
 </head>
 <body>
 <div class="section">
-  <div class="header">Software Architecture &nbsp;/&nbsp; Code Overview</div>
+  <div class="header">Code Overview</div>
   <div class="body">
 
     <div class="pipeline-row">
-      <div class="box">capture.py<br><span style="font-weight:normal;font-size:8px;">Photo</span></div>
+      <div class="box">capture.py</div>
       <div class="arrow">›</div>
-      <div class="box">process.py<br><span style="font-weight:normal;font-size:8px;">Silhouette</span></div>
+      <div class="box">process.py</div>
       <div class="arrow">›</div>
-      <div class="box">vectorize.py<br><span style="font-weight:normal;font-size:8px;">SVG Path</span></div>
+      <div class="box">vectorize.py</div>
       <div class="arrow">›</div>
-      <div class="box">export.py<br><span style="font-weight:normal;font-size:8px;">Laser File</span></div>
+      <div class="box">export.py</div>
     </div>
 
-    <hr class="divider">
-
-    <div class="row"><span class="label">capture.py</span><span class="desc">Pi camera capture — locks white balance &amp; focus, saves timestamped JPEG.</span></div>
-    <div class="row"><span class="label">process.py</span><span class="desc">Undistorts image → detects ArUco marker for px/mm scale → extracts tool silhouette → expands outline by offset (mm) for foam clearance.</span></div>
-    <div class="row"><span class="label">vectorize.py</span><span class="desc">Converts binary mask to SVG vector path via vtracer.</span></div>
-    <div class="row"><span class="label">export.py</span><span class="desc">Patches SVG units to real-world mm, sets viewBox, converts to hairline strokes for laser cutter.</span></div>
-    <div class="row"><span class="label" style="background:#4a6741;">config.py</span><span class="desc">All tunable parameters — calibration matrix, crop bounds, marker size, outline offset, output paths.</span></div>
-
-    <hr class="divider">
+    <p style="font-size:9px; line-height:1.6; margin-bottom:10px;">
+      Pi camera captures a JPEG → OpenCV undistorts and detects an ArUco marker for real-world scale →
+      tool silhouette is extracted and expanded for foam clearance → vtracer converts the mask to SVG →
+      dimensions are patched to mm for the laser cutter.
+      All parameters live in <strong>config.py</strong>.
+    </p>
 
     <div>
       <span class="pill">Python 3</span>
       <span class="pill">OpenCV</span>
-      <span class="pill">NumPy</span>
       <span class="pill">Picamera2</span>
       <span class="pill">vtracer</span>
       <span class="pill">Raspberry Pi</span>
-      <span class="pill">ArUco Markers</span>
     </div>
 
   </div>
