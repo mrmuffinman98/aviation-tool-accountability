@@ -76,14 +76,29 @@ ARUCO_MARKER_SIZE_MM = 20.0
 # Silhouette extraction
 # ---------------------------------------------------------------------------
 
-# Binary threshold level. 0–255. Background (lit) → white; tool → black.
-# Increase if tool pixels bleed into background; decrease if background
-# pixels are captured as tool.
+# Use adaptive thresholding instead of a fixed global threshold.
+# Recommended for light-coloured tools or uneven lighting — it computes
+# a local threshold per region so low-contrast tools are still detected.
+# Set to False to use the fixed THRESHOLD_VALUE below instead.
+USE_ADAPTIVE_THRESHOLD = True
+
+# Adaptive threshold block size — neighbourhood area used to compute each
+# local threshold. Must be an odd number. Larger = smoother but less sensitive
+# to fine detail. 51 works well for most tools at 18" camera height.
+ADAPTIVE_BLOCK_SIZE = 51
+
+# Constant subtracted from the local mean. Higher = less sensitive (fewer
+# false positives from light board texture); lower = more sensitive.
+ADAPTIVE_C = 8
+
+# Fixed threshold fallback (used only when USE_ADAPTIVE_THRESHOLD = False).
+# 0–255. Background (lit) → white; tool → black.
 THRESHOLD_VALUE = 127
 
 # Minimum contour area (pixels²) to be considered a tool.
 # Eliminates dust, reflections, and small noise contours.
-CONTOUR_MIN_AREA = 5000
+# Lowered to 2000 to catch small pieces like sockets.
+CONTOUR_MIN_AREA = 2000
 
 # Uniform outward expansion applied to the tool silhouette before vectorizing.
 # Adds wiggle room so the tool drops into the foam insert easily.

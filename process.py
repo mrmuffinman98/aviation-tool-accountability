@@ -176,11 +176,23 @@ def extract_silhouette(image: np.ndarray) -> tuple[np.ndarray, np.ndarray, float
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Invert: light board background is bright, tool is dark.
-    # After threshold + invert, tool pixels are white (255).
-    _, thresh = cv2.threshold(
-        gray, config.THRESHOLD_VALUE, 255, cv2.THRESH_BINARY_INV
-    )
+    # Threshold: tool is darker than the bright light board background.
+    # Adaptive mode computes a local threshold per region — handles light-
+    # coloured tools and uneven lighting much better than a fixed cutoff.
+    if config.USE_ADAPTIVE_THRESHOLD:
+        thresh = cv2.adaptiveThreshold(
+            gray, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            config.ADAPTIVE_BLOCK_SIZE,
+            config.ADAPTIVE_C,
+        )
+        print(f"[process] Adaptive threshold (block={config.ADAPTIVE_BLOCK_SIZE}, C={config.ADAPTIVE_C})")
+    else:
+        _, thresh = cv2.threshold(
+            gray, config.THRESHOLD_VALUE, 255, cv2.THRESH_BINARY_INV
+        )
+        print(f"[process] Fixed threshold ({config.THRESHOLD_VALUE})")
 
     # Zero out border pixels to prevent undistortion edge artifacts from
     # being detected as contours (dark border pixels become white after invert).
