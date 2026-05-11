@@ -1,9 +1,9 @@
 # compose.py
-# Combines per-tool session SVGs into a single shadowboard SVG for laser cutting.
+# Combines per-tool session SVGs into a single stacked SVG for laser cutting.
 #
-# The outer SVG uses mm as its coordinate unit (1 viewBox unit = 1mm) sized to
-# BOARD_WIDTH_MM × BOARD_HEIGHT_MM. Each tool is a nested <svg> element with its
-# own pixel-space viewBox, positioned using a shelf-packing layout.
+# Tools are placed vertically one after the next with a 2mm gap between them.
+# The canvas is sized exactly to fit — no fixed board dimensions.
+# Arrange and nest the output in your CAD/vector tool before cutting.
 
 import json
 import time
@@ -13,6 +13,7 @@ from pathlib import Path
 import config
 
 _SVG_NS = "http://www.w3.org/2000/svg"
+_GAP_MM = 2.0
 
 
 def _load_session_tools(session_dir: Path) -> list[dict]:
@@ -24,40 +25,8 @@ def _load_session_tools(session_dir: Path) -> list[dict]:
     return tools
 
 
-def _shelf_layout(
-    tools: list[dict],
-    board_w: float,
-    board_h: float,
-    padding: float,
-) -> list[tuple[float, float]]:
-    """Assign (x, y) mm positions using a left-to-right shelf packing algorithm."""
-    positions = []
-    cursor_x = padding
-    cursor_y = padding
-    row_height = 0.0
-
-    for i, tool in enumerate(tools):
-        if cursor_x + tool["width_mm"] > board_w - padding:
-            cursor_x = padding
-            cursor_y += row_height
-            row_height = 0.0
-
-        if cursor_y + tool["height_mm"] > board_h - padding:
-            raise ValueError(
-                f"Tool {i + 1} ({tool['width_mm']:.1f}×{tool['height_mm']:.1f}mm) "
-                f"does not fit on the board ({board_w}×{board_h}mm). "
-                "Increase BOARD_WIDTH_MM / BOARD_HEIGHT_MM in config.py or capture fewer tools."
-            )
-
-        positions.append((cursor_x, cursor_y))
-        cursor_x += tool["width_mm"] + padding
-        row_height = max(row_height, tool["height_mm"] + padding)
-
-    return positions
-
-
 def compose_shadowboard() -> str:
-    """Load all session tools and write a single combined shadowboard SVG.
+    """Stack all session tools vertically and write a single SVG.
 
     Returns:
         Absolute path to the saved SVG file.
@@ -67,28 +36,29 @@ def compose_shadowboard() -> str:
     if not tools:
         raise ValueError("No tools in session. Capture at least one tool first.")
 
-    board_w = config.BOARD_WIDTH_MM
-    board_h = config.BOARD_HEIGHT_MM
-    padding = config.TOOL_PADDING_MM
-
-    positions = _shelf_layout(tools, board_w, board_h, padding)
+    canvas_w = max(t["width_mm"]  for t in tools)
+    canvas_h = (
+        sum(t["height_mm"] for t in tools)
+        + _GAP_MM * (len(tools) - 1)
+    )
 
     ET.register_namespace("", _SVG_NS)
 
     root = ET.Element(f"{{{_SVG_NS}}}svg")
-    root.set("xmlns", _SVG_NS)
-    root.set("width",   f"{board_w}mm")
-    root.set("height",  f"{board_h}mm")
-    root.set("viewBox", f"0 0 {board_w} {board_h}")
+    root.set("xmlns",   _SVG_NS)
+    root.set("width",   f"{canvas_w}mm")
+    root.set("height",  f"{canvas_h}mm")
+    root.set("viewBox", f"0 0 {canvas_w} {canvas_h}")
 
-    for tool, (x, y) in zip(tools, positions):
+    y = 0.0
+    for tool in tools:
         tool_root = ET.fromstring(tool["svg_content"])
         viewbox = tool_root.get(
             "viewBox", f"0 0 {tool['width_mm']} {tool['height_mm']}"
         )
 
         nested = ET.SubElement(root, f"{{{_SVG_NS}}}svg")
-        nested.set("x",       f"{x:.4f}")
+        nested.set("x",       "0")
         nested.set("y",       f"{y:.4f}")
         nested.set("width",   f"{tool['width_mm']:.4f}")
         nested.set("height",  f"{tool['height_mm']:.4f}")
@@ -96,6 +66,8 @@ def compose_shadowboard() -> str:
 
         for child in list(tool_root):
             nested.append(child)
+
+        y += tool["height_mm"] + _GAP_MM
 
     output_dir = Path(config.SVG_OUTPUT_PATH)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +78,6 @@ def compose_shadowboard() -> str:
 
     print(
         f"[compose] Shadowboard SVG saved: {output_path}  "
-        f"({len(tools)} tool(s), {board_w}×{board_h}mm)"
+        f"({len(tools)} tool(s), {canvas_w:.1f}×{canvas_h:.1f}mm)"
     )
     return str(output_path)

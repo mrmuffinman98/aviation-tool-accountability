@@ -1,0 +1,11 @@
+{
+  "lens_position": 8.0,
+  "crop_bounds": [50, 50, 2200, 1196],
+  "aruco_dict_name": "DICT_4X4_50",
+  "aruco_marker_id": 0,
+  "aruco_marker_size_mm": 50.0,
+  "threshold_value": 127,
+  "contour_min_area": 5000,
+  "svg_output_path": "output",
+  "session_path": "session"
+}
