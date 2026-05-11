@@ -90,3 +90,17 @@ CONTOUR_MIN_AREA = 5000
 # ---------------------------------------------------------------------------
 
 SVG_OUTPUT_PATH = "output"
+
+# ---------------------------------------------------------------------------
+# Shadow board composition
+# Set these to the physical dimensions of your foam board in millimetres.
+# TOOL_PADDING_MM is the gap between tools and board edges.
+# ---------------------------------------------------------------------------
+
+BOARD_WIDTH_MM  = 500.0
+BOARD_HEIGHT_MM = 400.0
+TOOL_PADDING_MM = 10.0
+
+# Intermediate per-tool SVGs are stored here between captures.
+# This directory is wiped when you run --clear.
+SESSION_PATH = "session"

@@ -9,6 +9,7 @@
 #
 # Uses Python stdlib xml.etree.ElementTree — no extra dependencies.
 
+import json
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -85,6 +86,60 @@ def svg_to_file(
         f"({width_mm:.1f}mm × {height_mm:.1f}mm)"
     )
     return str(output_path)
+
+
+def svg_to_session(svg_content: str, pixels_per_mm: float) -> str:
+    """Patch a tool SVG and save it to the session directory for later composition.
+
+    Args:
+        svg_content: Raw SVG string from vectorize.bitmap_to_svg_string().
+        pixels_per_mm: Scale factor from process.detect_scale().
+
+    Returns:
+        Path to the saved session JSON file.
+    """
+    session_dir = Path(config.SESSION_PATH)
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    index = len(list(session_dir.glob("tool_*.json"))) + 1
+
+    ET.register_namespace("", _SVG_NS)
+    root = ET.fromstring(svg_content)
+
+    viewbox = root.get("viewBox", "")
+    parts = viewbox.split()
+    if len(parts) == 4:
+        width_px  = float(parts[2])
+        height_px = float(parts[3])
+    else:
+        width_px  = float(root.get("width",  "100").replace("px", ""))
+        height_px = float(root.get("height", "100").replace("px", ""))
+
+    width_mm  = width_px  / pixels_per_mm
+    height_mm = height_px / pixels_per_mm
+
+    stroke_width_px = 0.1 * pixels_per_mm
+    for elem in root.iter(f"{{{_SVG_NS}}}path"):
+        elem.set("fill",         "none")
+        elem.set("stroke",       "black")
+        elem.set("stroke-width", f"{stroke_width_px:.4f}")
+
+    patched_svg = ET.tostring(root, encoding="unicode")
+
+    out_path = session_dir / f"tool_{index:03d}.json"
+    with open(out_path, "w") as fh:
+        json.dump(
+            {
+                "index":     index,
+                "width_mm":  round(width_mm,  4),
+                "height_mm": round(height_mm, 4),
+                "svg_content": patched_svg,
+            },
+            fh,
+        )
+
+    print(f"[export] Tool {index} saved to session  ({width_mm:.1f}mm × {height_mm:.1f}mm)")
+    return str(out_path)
 
 
 if __name__ == "__main__":
